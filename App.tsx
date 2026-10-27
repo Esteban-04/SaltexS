@@ -200,15 +200,12 @@ const App: React.FC = () => {
                  {(isAdmin || (currentUser?.role === 'admin')) && (
                    <div className="flex items-center gap-2">
                      <button onClick={() => setShowAdminDashboard(true)} className="text-[10px] bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30 font-black uppercase tracking-widest">{t('adminBadge')}</button>
-                     <div className={`w-2 h-2 rounded-full ${cloudStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : cloudStatus === 'checking' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`} title={cloudStatus === 'online' ? t('cloudConnected') : t('cloudOffline')}></div>
                    </div>
                  )}
             </div>
             
             <div className="flex items-center gap-2 sm:gap-6 w-full sm:w-auto justify-between sm:justify-end">
-                <ServerStatusSummary />
-                
-                <div className="flex items-center gap-4 border-l border-white/10 pl-4">
+                <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full border-2 border-white/20 overflow-hidden bg-slate-800 shadow-inner shrink-0">
                             {currentUser?.avatar ? (

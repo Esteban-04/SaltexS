@@ -60,7 +60,7 @@ const writeDb = (data) => {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Serve static frontend files from public folder if present
+// Serve static frontend files from public folder
 const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
@@ -125,14 +125,79 @@ app.post(['/api/check-status', '/check-status'], async (req, res) => {
   res.json({ results });
 });
 
-// Single Page Application Fallback: Serve the React web app for any non-API route
+// Explicit asset serving with correct MIME types for React bundle
+app.get('/assets/:filename', (req, res, next) => {
+  const filename = req.params.filename;
+  const possibleAssetDirs = [
+    path.join(__dirname, 'public/assets'),
+    path.resolve(process.cwd(), 'backend/public/assets'),
+    path.resolve(process.cwd(), 'dist/assets'),
+    path.join(__dirname, '../dist/assets')
+  ];
+  for (const dir of possibleAssetDirs) {
+    const file = path.join(dir, filename);
+    if (fs.existsSync(file)) {
+      if (filename.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (filename.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      }
+      return res.sendFile(file);
+    }
+  }
+  next();
+});
+
+const getIndexHtml = () => {
+  const possiblePaths = [
+    path.join(__dirname, 'public/index.html'),
+    path.resolve(process.cwd(), 'backend/public/index.html'),
+    path.resolve(process.cwd(), 'dist/index.html'),
+    path.join(__dirname, '../dist/index.html')
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      try {
+        return fs.readFileSync(p, 'utf8');
+      } catch (_) {}
+    }
+  }
+
+  let jsName = 'index-09899d7b.js';
+  try {
+    const assetDirs = [
+      path.join(__dirname, 'public/assets'),
+      path.resolve(process.cwd(), 'backend/public/assets'),
+      path.resolve(process.cwd(), 'dist/assets')
+    ];
+    for (const d of assetDirs) {
+      if (fs.existsSync(d)) {
+        const found = fs.readdirSync(d).find(f => f.endsWith('.js'));
+        if (found) { jsName = found; break; }
+      }
+    }
+  } catch (_) {}
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sites Saltex</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" crossorigin src="/assets/${jsName}"></script>
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+</body>
+</html>`;
+};
+
+// Single Page Application Fallback: Serve React web app for any other route
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
-  const indexHtml = path.join(publicDir, 'index.html');
-  if (fs.existsSync(indexHtml)) {
-    return res.sendFile(indexHtml);
-  }
-  res.status(200).send("SALTEX Application Ready. Please compile with npm run build.");
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.status(200).send(getIndexHtml());
 });
 
 if (require.main === module && !isVercel) {
