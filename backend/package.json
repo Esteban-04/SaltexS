@@ -3,7 +3,7 @@
   "name": "monitor-backend",
   "version": "1.0.0",
   "description": "Backend for pinging servers and sending email alerts",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node server.js",
     "build": "mkdir -p public && echo 'Backend ready' && node -e 'console.log(\"Build exitoso\")'"
