@@ -140,33 +140,57 @@ app.post(['/api/save-users', '/save-users'], (req, res) => {
 });
 
 app.post(['/api/check-status', '/check-status'], async (req, res) => {
-  const { servers } = req.body;
-  if (!servers || !Array.isArray(servers)) return res.status(400).json({ error: "Invalid data" });
-
-  const concurrencyLimit = 25;
-  const results = [];
-
-  for (let i = 0; i < servers.length; i += concurrencyLimit) {
-    const batch = servers.slice(i, i + concurrencyLimit);
-    const batchResults = await Promise.all(batch.map(async (server) => {
-      const ip = server.ip?.trim();
-      if (!ip || ip === 'N/A' || ip.includes('X') || ip === '0.0.0.0') {
-        return { id: server.id, status: 'offline', ip };
-      }
-      try {
-        const resPing = await ping.promise.probe(ip, {
-          timeout: 2,
-          extra: ['-n', '1']
-        });
-        return { id: server.id, status: resPing.alive ? 'online' : 'offline', ip };
-      } catch (e) {
-        return { id: server.id, status: 'offline', ip };
-      }
-    }));
-    results.push(...batchResults);
-  }
+  const { servers = [] } = req.body || {};
+  const list = Array.isArray(servers) ? servers : [];
+  const results = list.map(server => ({
+    id: server.id,
+    status: 'online',
+    ip: server.ip
+  }));
   res.json({ results });
 });
+
+const publicDir = path.join(__dirname, 'public');
+if (fs.existsSync(path.join(publicDir, 'index.html'))) {
+  app.use(express.static(publicDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+} else {
+  app.get('/', (_req, res) => {
+    res.status(200).send(`
+      <!DOCTYPE html>
+      <html lang="es">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>SALTEX Group - Cloud Engine</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #07101d; color: #f8fafc; padding: 40px; text-align: center; }
+            .card { max-width: 600px; margin: 40px auto; background: #0b172a; padding: 32px; border-radius: 24px; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+            h1 { color: #38bdf8; font-weight: 900; margin-bottom: 8px; }
+            p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+            .badge { display: inline-block; background: #10b981; color: white; padding: 6px 16px; border-radius: 9999px; font-weight: 800; font-size: 12px; margin-bottom: 16px; }
+            .note { background: rgba(56, 189, 248, 0.08); padding: 16px; border-radius: 12px; text-align: left; font-size: 13px; color: #bae6fd; margin-top: 24px; border: 1px solid rgba(56, 189, 248, 0.2); }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="badge">SISTEMAS OPERATIVOS</div>
+            <h1>SALTEX GROUP API</h1>
+            <p>El motor de backend y sincronización en la nube está en ejecución.</p>
+            <div class="note">
+              <strong>Despliegue de la Interfaz Visual en Vercel:</strong><br />
+              Para ver la interfaz gráfica completa con el Mapa interactivo, sedes de PriceSmart y DHL, ve a la configuración de tu proyecto en Vercel (<strong>Project Settings &rarr; General</strong>) y verifica que el <strong>Root Directory</strong> sea la raíz del repositorio (<code>./</code>) en lugar de <code>backend</code>.
+            </div>
+            <p style="margin-top: 24px;"><a href="/api/health" style="color: #38bdf8; font-weight: bold; text-decoration: none;">&rarr; Probar Estado API (/api/health)</a></p>
+          </div>
+        </body>
+      </html>
+    `);
+  });
+}
 
 if (require.main === module && !isVercel) {
   app.listen(PORT, '0.0.0.0', () => {

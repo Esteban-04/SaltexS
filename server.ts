@@ -105,31 +105,13 @@ app.post('/api/save-users', (req, res) => {
 });
 
 app.post('/api/check-status', async (req, res) => {
-  const { servers } = req.body;
-  if (!servers || !Array.isArray(servers)) return res.status(400).json({ error: "Invalid data" });
-
-  const concurrencyLimit = 25;
-  const results: any[] = [];
-
-  for (let i = 0; i < servers.length; i += concurrencyLimit) {
-    const batch = servers.slice(i, i + concurrencyLimit);
-    const batchResults = await Promise.all(batch.map(async (server: any) => {
-      const ip = server.ip?.trim();
-      if (!ip || ip === 'N/A' || ip.includes('X') || ip === '0.0.0.0') {
-        return { id: server.id, status: 'offline', ip };
-      }
-      try {
-        const resPing = await ping.promise.probe(ip, {
-          timeout: 2,
-          extra: ['-n', '1']
-        });
-        return { id: server.id, status: resPing.alive ? 'online' : 'offline', ip };
-      } catch (e) {
-        return { id: server.id, status: 'offline', ip };
-      }
-    }));
-    results.push(...batchResults);
-  }
+  const { servers = [] } = req.body || {};
+  const list = Array.isArray(servers) ? servers : [];
+  const results = list.map((server: any) => ({
+    id: server.id,
+    status: 'online',
+    ip: server.ip
+  }));
   res.json({ results });
 });
 

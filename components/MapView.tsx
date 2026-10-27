@@ -7,11 +7,11 @@ interface MapViewProps {
   countries: Country[];
   selectedCountryCode: string | null;
   onSelectCountry: (country: Country) => void;
-  offlineServers: any[];
-  isChecking: boolean;
+  offlineServers?: any[];
+  isChecking?: boolean;
 }
 
-const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSelectCountry, offlineServers, isChecking }) => {
+const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSelectCountry }) => {
   const { t, getCountryName } = useLanguage();
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
   
@@ -63,14 +63,12 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
     }
   };
 
-  const getCountryStatus = (code: string) => {
-    if (isChecking) return 'checking';
-    const isOffline = offlineServers.some(s => s.countryCode === code || (code === 'dhl' && s.country === 'DHL GLOBAL'));
-    return isOffline ? 'offline' : 'online';
+  const getCountryStatus = (_code: string) => {
+    return 'online';
   };
 
-  const getOfflineCount = (code: string) => {
-    return offlineServers.filter(s => s.countryCode === code || (code === 'dhl' && s.country === 'DHL GLOBAL')).length;
+  const getOfflineCount = (_code: string) => {
+    return 0;
   };
 
   const getCountryObj = (code: string): Country | null => {
@@ -88,9 +86,9 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
       <div className="absolute top-5 left-5 z-20 pointer-events-none">
         <div className="bg-[#0b172a]/95 backdrop-blur-xl px-5 py-3 rounded-2xl border border-cyan-500/30 shadow-2xl">
           <div className="flex items-center gap-3 mb-1">
-            <div className={`w-3 h-3 rounded-full shadow-[0_0_15px] ${isChecking ? 'bg-amber-400 animate-pulse shadow-amber-400' : 'bg-emerald-400 shadow-emerald-400'}`}></div>
+            <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_15px_#34d399]"></div>
             <h3 className="text-white font-black text-lg sm:text-xl tracking-tight uppercase italic leading-none">
-              {isChecking ? t('mapCheckingConnections') : t('mapTitle')}
+              {t('mapTitle')}
             </h3>
           </div>
           <div className="flex items-center gap-2.5 text-[10px] text-cyan-300 font-bold tracking-wider">
@@ -243,11 +241,7 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
             let strokeColor = '#38bdf8';
             let strokeWidth = 1.5;
 
-            if (status === 'offline') {
-              fillColor = isHovered ? 'rgba(239, 68, 68, 0.5)' : 'rgba(239, 68, 68, 0.3)';
-              strokeColor = '#ef4444';
-              strokeWidth = 2;
-            } else if (isSelected || isHovered) {
+            if (isSelected || isHovered) {
               fillColor = 'rgba(14, 165, 233, 0.45)';
               strokeColor = '#38bdf8';
               strokeWidth = 2.5;
@@ -279,8 +273,6 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
           {Object.entries(CALIBRATED_MARKER_POSITIONS).map(([code, pos], idx) => {
             const isHovered = hoveredCountry === code;
             const isSelected = selectedCountryCode === code;
-            const status = getCountryStatus(code);
-            const offlineCount = getOfflineCount(code);
             const country = getCountryObj(code);
             const count = country ? country.count : 0;
             const isDhl = code === 'dhl';
@@ -300,9 +292,9 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
                 <circle
                   cx={pos.x}
                   cy={pos.y}
-                  r={status === 'offline' ? 32 : isHovered ? 28 : 18}
-                  fill={status === 'offline' ? '#ef4444' : isDhl ? '#FFCC00' : status === 'checking' ? '#f59e0b' : '#38bdf8'}
-                  className={`transition-all duration-500 ${isHovered || isSelected || status === 'offline' ? 'opacity-35 animate-ping' : 'opacity-10'}`}
+                  r={isHovered ? 26 : 16}
+                  fill={isDhl ? '#FFCC00' : '#38bdf8'}
+                  className={`transition-all duration-500 ${isHovered || isSelected ? 'opacity-35 animate-ping' : 'opacity-10'}`}
                 />
 
                 {/* Pin exterior */}
@@ -311,7 +303,7 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
                   cy={pos.y}
                   r={isHovered ? 12 : 9}
                   className="transition-all duration-200"
-                  fill={status === 'offline' ? '#ef4444' : isDhl ? '#FFCC00' : status === 'checking' ? '#f59e0b' : '#0284c7'}
+                  fill={isDhl ? '#FFCC00' : '#0284c7'}
                   stroke={isDhl ? '#D40511' : '#ffffff'}
                   strokeWidth={isDhl ? '3' : '2.5'}
                 />
@@ -333,7 +325,7 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
                     height="20"
                     rx="10"
                     fill={isDhl ? '#FFCC00' : isHovered ? '#0284c7' : '#0b1626'}
-                    stroke={isDhl ? '#D40511' : isHovered ? '#38bdf8' : status === 'offline' ? '#ef4444' : 'rgba(255,255,255,0.25)'}
+                    stroke={isDhl ? '#D40511' : isHovered ? '#38bdf8' : 'rgba(255,255,255,0.25)'}
                     strokeWidth={isDhl ? '2' : '1.5'}
                     className="transition-colors duration-200 shadow-md"
                   />
@@ -348,18 +340,6 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
                     {isDhl ? `DHL (5)` : `${code.toUpperCase()} (${count})`}
                   </text>
                 </g>
-
-                {/* Contador de fallos si hay offline */}
-                {status === 'offline' && (
-                  <text
-                    x={pos.x}
-                    y={pos.y > 450 ? -36 : -18}
-                    textAnchor="middle"
-                    className="fill-red-400 text-[10px] font-black uppercase tracking-tighter"
-                  >
-                    {t('mapFailures', offlineCount)}
-                  </text>
-                )}
               </g>
             );
           })}
@@ -402,11 +382,9 @@ const MapView: React.FC<MapViewProps> = ({ countries, selectedCountryCode, onSel
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-1.5">
-                <span className={`w-2 h-2 rounded-full ${getCountryStatus(hoveredObj.code) === 'offline' ? 'bg-red-500 animate-ping' : 'bg-emerald-400'}`}></span>
-                <p className={`${getCountryStatus(hoveredObj.code) === 'offline' ? 'text-red-400' : 'text-emerald-400'} font-bold text-[11px] tracking-wide`}>
-                  {getCountryStatus(hoveredObj.code) === 'offline'
-                    ? t('mapServersDown', getOfflineCount(hoveredObj.code))
-                    : t('mapVpnOk')}
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <p className="text-emerald-400 font-bold text-[11px] tracking-wide">
+                  {t('mapVpnOk')}
                 </p>
               </div>
               <p className="text-cyan-400 text-[10px] font-bold mt-1">

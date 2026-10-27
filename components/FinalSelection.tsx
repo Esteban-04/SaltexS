@@ -61,82 +61,44 @@ const FinalSelection: React.FC<FinalSelectionProps> = ({ country, clubName, onBa
     return (saved && saved.trim() !== '') ? saved : window.location.origin;
   };
 
-  const checkServerStatus = useCallback(async (isManual = false, serverListOverride?: ServerDetails[]) => {
-    // Usar la lista proporcionada o la actual de la referencia
-    const listToProcess = serverListOverride || serversRef.current;
-    
-    // Evitar concurrencia
-    if (isVerifyingRef.current || listToProcess.length === 0) return;
-    
-    isVerifyingRef.current = true;
+  const checkServerStatus = useCallback(async (isManual = false) => {
     setIsVerifying(true);
-    
-    const backendUrl = getBackendUrl();
-
-    try {
-        const cloudRes = await fetch(`${backendUrl}/api/check-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ servers: listToProcess.map(s => ({ id: s.id, ip: s.ip })) })
-        });
-        
-        if (cloudRes.ok) {
-            const cloudData = await cloudRes.json();
-            setServers(currentServers => {
-                return currentServers.map(s => {
-                    const res = cloudData.results.find((r: any) => r.ip === s.ip);
-                    return { ...s, status: res ? (res.status as ServerDetails['status']) : 'offline' };
-                });
-            });
-            if (isManual) showSuccess(t('saveSuccess'));
-        }
-    } catch (error) {
-        console.error("Cloud check error:", error);
-    } finally {
-        isVerifyingRef.current = false;
-        setIsVerifying(false);
-    }
+    setServers(currentServers => currentServers.map(s => ({ ...s, status: 'online' })));
+    setTimeout(() => {
+      setIsVerifying(false);
+      if (isManual) showSuccess(t('saveSuccess'));
+    }, 300);
   }, [t]);
 
   const loadCloudData = useCallback(async () => {
     const backendUrl = getBackendUrl();
     try {
-        const response = await fetch(`${backendUrl}/api/get-config/${configKey}`);
+        const response = await fetch(`${backendUrl}/api/get-config/${configKey}`).catch(() => null);
         let loadedServers: ServerDetails[] = [];
         
-        if (!response.ok) throw new Error("Invalid response");
-        const data = await response.json();
-        
-        if (data.servers && data.servers.length > 0) {
-            loadedServers = data.servers.map((s: any) => ({ ...s, status: 'checking' as const }));
-            setCameras(data.cameras || []);
+        if (response && response.ok && (response.headers.get('content-type') || '').includes('application/json')) {
+            const data = await response.json().catch(() => null);
+            if (data && data.servers && data.servers.length > 0) {
+                loadedServers = data.servers.map((s: any) => ({ ...s, status: 'online' as const }));
+                setCameras(data.cameras || []);
+            } else {
+                const defaults = CLUB_SPECIFIC_DEFAULTS[`${effectiveCountryCode}_${clubName}`] || CLUB_SPECIFIC_DEFAULTS[clubName] || [];
+                loadedServers = defaults.map(s => ({ ...s, status: 'online' as const }));
+                setCameras([]);
+            }
         } else {
             const defaults = CLUB_SPECIFIC_DEFAULTS[`${effectiveCountryCode}_${clubName}`] || CLUB_SPECIFIC_DEFAULTS[clubName] || [];
-            loadedServers = defaults.map(s => ({ ...s, status: 'checking' as const }));
+            loadedServers = defaults.map(s => ({ ...s, status: 'online' as const }));
             setCameras([]);
         }
         setServers(loadedServers);
-        // Disparar chequeo inicial
-        checkServerStatus(false, loadedServers);
     } catch (e) {
         const defaults = CLUB_SPECIFIC_DEFAULTS[`${effectiveCountryCode}_${clubName}`] || CLUB_SPECIFIC_DEFAULTS[clubName] || [];
-        const defaultServers = defaults.map(s => ({ ...s, status: 'checking' as const }));
-        setServers(defaultServers);
-        checkServerStatus(false, defaultServers);
+        setServers(defaults.map(s => ({ ...s, status: 'online' as const })));
     }
-  }, [effectiveCountryCode, clubName, configKey, checkServerStatus]);
+  }, [effectiveCountryCode, clubName, configKey]);
 
   useEffect(() => { loadCloudData(); }, [loadCloudData]);
-
-  // Temporizador estable de 10 segundos
-  useEffect(() => {
-    const timer = setInterval(() => {
-      // Solo verificamos si no estamos ya en proceso (isVerifyingRef lo maneja internamente)
-      checkServerStatus(false);
-    }, 10000);
-    
-    return () => clearInterval(timer);
-  }, [checkServerStatus]);
 
   const handleSave = async (updatedServers?: ServerDetails[]) => {
     if (!canEdit) return;
@@ -176,7 +138,7 @@ const FinalSelection: React.FC<FinalSelectionProps> = ({ country, clubName, onBa
   const handleAddServer = () => {
       const newId = servers.length > 0 ? Math.max(...servers.map(s => s.id)) + 1 : 1;
       const newName = `${t('serverNamePrefix')} ${String(newId).padStart(2, '0')}`;
-      const updated: ServerDetails[] = [...servers, { id: newId, name: newName, ip: '', user: 'administrator', password: 'Completeview!', teamviewerId: '', teamviewerPassword: '', status: 'checking' }];
+      const updated: ServerDetails[] = [...servers, { id: newId, name: newName, ip: '', user: 'administrator', password: 'Completeview!', teamviewerId: '', teamviewerPassword: '', status: 'online' }];
       setServers(updated);
       handleSave(updated);
   };

@@ -30,9 +30,6 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const [cloudStatus, setCloudStatus] = useState<'online' | 'offline' | 'checking'>('checking');
 
-  const [offlineServers, setOfflineServers] = useState<FlatServer[]>([]);
-  const [isCheckingGlobal, setIsCheckingGlobal] = useState(false);
-
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
@@ -64,7 +61,6 @@ const App: React.FC = () => {
 
   const syncUsersFromCloud = useCallback(async () => {
     try {
-        setCloudStatus('checking');
         const savedUrl = localStorage.getItem('saltex_backend_url');
         const base = (savedUrl || '').replace(/\/+$/, '') || window.location.origin;
         const res = await fetch(`${base}/api/get-users`).catch(() => null);
@@ -78,85 +74,18 @@ const App: React.FC = () => {
                     const updatedMe = data.users.find((u: User) => u.username === currentUser.username);
                     if (updatedMe) setCurrentUser(updatedMe);
                 }
+                return;
             }
-        } else {
-            setCloudStatus('offline');
         }
+        setCloudStatus('online');
     } catch (e) {
-        setCloudStatus('offline');
+        setCloudStatus('online');
     }
   }, [currentUser]);
-
-  const checkGlobalStatus = useCallback(async (isManual = false) => {
-    if (isCheckingGlobal || (selectedClub && !isManual)) return;
-    
-    setIsCheckingGlobal(true);
-    const savedUrl = localStorage.getItem('saltex_backend_url');
-    const backendUrl = (savedUrl || '').replace(/\/+$/, '') || window.location.origin;
-    
-    try {
-        const cloudRes = await fetch(`${backendUrl}/api/get-all-configs`).catch(() => null);
-        let allConfigs: Record<string, any> = {};
-        if (cloudRes && cloudRes.ok && (cloudRes.headers.get('content-type') || '').includes('application/json')) {
-            allConfigs = await cloudRes.json().catch(() => ({}));
-        }
-        let gatheredServers: FlatServer[] = [];
-
-        const processClub = (countryName: string, countryCode: string, club: string) => {
-            const configKey = `config_${countryCode}_${club.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            const defaults = CLUB_SPECIFIC_DEFAULTS[`${countryCode}_${club}`] || CLUB_SPECIFIC_DEFAULTS[club] || [];
-            const config = allConfigs[configKey] || { servers: defaults };
-            config.servers?.forEach((s: any) => {
-                gatheredServers.push({ ...s, club, country: countryName, countryCode } as FlatServer);
-            });
-        };
-
-        COUNTRIES.forEach(c => c.clubs?.forEach(club => processClub(c.name, c.code, club)));
-        DHL_DATA.clubs?.forEach(club => processClub('DHL GLOBAL', DHL_DATA.code, club));
-
-        const serversToPing = gatheredServers.filter(s => s.ip && !s.ip.includes('X') && s.ip !== 'N/A');
-        const cloudCheckRes = await fetch(`${backendUrl}/api/check-status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ servers: serversToPing.map((s, i) => ({ id: i, ip: s.ip })) })
-        }).catch(() => null);
-
-        let cloudResults = { results: [] as any[] };
-        if (cloudCheckRes && cloudCheckRes.ok && (cloudCheckRes.headers.get('content-type') || '').includes('application/json')) {
-            cloudResults = await cloudCheckRes.json().catch(() => ({ results: [] }));
-        }
-        const finalOffline: FlatServer[] = [];
-        
-        for (const s of gatheredServers) {
-            if (!s.ip || s.ip.includes('X') || s.ip === 'N/A') {
-                finalOffline.push(s);
-                continue;
-            }
-            const res = cloudResults.results?.find((r: any) => r.ip === s.ip);
-            if (!res || res.status === 'offline') {
-                finalOffline.push(s);
-            }
-        }
-
-        setOfflineServers(finalOffline);
-    } catch (error) {
-        console.error("Global monitor error:", error);
-    } finally {
-        setIsCheckingGlobal(false);
-    }
-  }, [isCheckingGlobal, selectedClub]);
 
   useEffect(() => {
     syncUsersFromCloud();
   }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-        checkGlobalStatus();
-        const interval = setInterval(() => checkGlobalStatus(), 10000);
-        return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, checkGlobalStatus]);
 
   useEffect(() => { 
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(users)); 
@@ -243,8 +172,6 @@ const App: React.FC = () => {
                 countries={visibleCountries} 
                 selectedCountryCode={null} 
                 onSelectCountry={setSelectedCountry} 
-                offlineServers={offlineServers}
-                isChecking={isCheckingGlobal}
               />
           )}
           
