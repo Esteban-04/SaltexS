@@ -1,0 +1,6 @@
+{
+  "name": "Sites Saltex",
+  "description": "A responsive web application that displays a grid of countries with their flags and a corresponding count. Users can click on a country to highlight it.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

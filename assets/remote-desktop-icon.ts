@@ -1,0 +1,3 @@
+// This file exports a base64 encoded SVG icon for a remote desktop.
+// The icon is used in the FinalSelection component.
+export const REMOTE_DESKTOP_ICON = `data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0yMCAxOGMxLjEgMCAyLS45IDItMlY2YzAtMS4xLS45LTItMi0ySDRjLTEuMSAwLTIgLjktMiAydjEwYzAgMS4xLjkgMiAyIDJIMHYyaDI0di0yaC00ek00IDZoMTZ2MTBINFY2em0yIDRoM3YySDZ6bTUgMGg2djJoLTZ6Ii8+PC9zdmc+`;
