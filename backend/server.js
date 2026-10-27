@@ -1,7 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const ping = require('ping');
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 
@@ -62,32 +60,9 @@ const writeDb = (data) => {
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Root route so "Cannot GET /" never occurs
-app.get('/', (req, res) => {
-  res.send(`<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <title>SALTEX Monitor API</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    .box { background: #1e293b; padding: 2rem; border-radius: 12px; border: 1px solid #334155; text-align: center; max-width: 480px; }
-    h1 { color: #38bdf8; margin: 0 0 10px; font-size: 1.5rem; }
-    p { color: #94a3b8; font-size: 0.95rem; }
-    .badge { display: inline-block; background: #065f46; color: #34d399; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 12px; }
-    a { color: #38bdf8; text-decoration: none; font-weight: 600; }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <div class="badge">● SERVIDOR ACTIVO</div>
-    <h1>SALTEX Monitor Backend API</h1>
-    <p>El backend de monitoreo está operativo en Vercel.</p>
-    <p><a href="/api/health">Ver Estado (/api/health)</a></p>
-  </div>
-</body>
-</html>`);
-});
+// Serve static frontend files from public folder if present
+const publicDir = path.join(__dirname, 'public');
+app.use(express.static(publicDir));
 
 // API Routes
 app.get(['/api/health', '/health'], (req, res) => {
@@ -150,47 +125,15 @@ app.post(['/api/check-status', '/check-status'], async (req, res) => {
   res.json({ results });
 });
 
-const publicDir = path.join(__dirname, 'public');
-if (fs.existsSync(path.join(publicDir, 'index.html'))) {
-  app.use(express.static(publicDir));
-  app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(publicDir, 'index.html'));
-  });
-} else {
-  app.get('/', (_req, res) => {
-    res.status(200).send(`
-      <!DOCTYPE html>
-      <html lang="es">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>SALTEX Group - Cloud Engine</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #07101d; color: #f8fafc; padding: 40px; text-align: center; }
-            .card { max-width: 600px; margin: 40px auto; background: #0b172a; padding: 32px; border-radius: 24px; border: 1px solid rgba(56, 189, 248, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-            h1 { color: #38bdf8; font-weight: 900; margin-bottom: 8px; }
-            p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
-            .badge { display: inline-block; background: #10b981; color: white; padding: 6px 16px; border-radius: 9999px; font-weight: 800; font-size: 12px; margin-bottom: 16px; }
-            .note { background: rgba(56, 189, 248, 0.08); padding: 16px; border-radius: 12px; text-align: left; font-size: 13px; color: #bae6fd; margin-top: 24px; border: 1px solid rgba(56, 189, 248, 0.2); }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="badge">SISTEMAS OPERATIVOS</div>
-            <h1>SALTEX GROUP API</h1>
-            <p>El motor de backend y sincronización en la nube está en ejecución.</p>
-            <div class="note">
-              <strong>Despliegue de la Interfaz Visual en Vercel:</strong><br />
-              Para ver la interfaz gráfica completa con el Mapa interactivo, sedes de PriceSmart y DHL, ve a la configuración de tu proyecto en Vercel (<strong>Project Settings &rarr; General</strong>) y verifica que el <strong>Root Directory</strong> sea la raíz del repositorio (<code>./</code>) en lugar de <code>backend</code>.
-            </div>
-            <p style="margin-top: 24px;"><a href="/api/health" style="color: #38bdf8; font-weight: bold; text-decoration: none;">&rarr; Probar Estado API (/api/health)</a></p>
-          </div>
-        </body>
-      </html>
-    `);
-  });
-}
+// Single Page Application Fallback: Serve the React web app for any non-API route
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  const indexHtml = path.join(publicDir, 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
+  res.status(200).send("SALTEX Application Ready. Please compile with npm run build.");
+});
 
 if (require.main === module && !isVercel) {
   app.listen(PORT, '0.0.0.0', () => {

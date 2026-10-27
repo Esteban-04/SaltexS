@@ -121,7 +121,9 @@ app.post('/api/check-status', async (req, res) => {
 const possibleDistPaths = [
     path.resolve(process.cwd(), 'dist'),
     path.join(__dirname, 'dist'),
-    path.resolve(__dirname, '../dist')
+    path.resolve(__dirname, '../dist'),
+    path.resolve(process.cwd(), 'backend/public'),
+    path.join(__dirname, 'backend/public')
 ];
 const distPath = possibleDistPaths.find(p => fs.existsSync(p));
 
