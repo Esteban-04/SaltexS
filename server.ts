@@ -156,11 +156,33 @@ if (hostIdx !== -1 && args[hostIdx + 1]) {
 
 async function startServer() {
   if (process.env.NODE_ENV === 'production') {
-    const distPath = path.join(__dirname, 'dist');
-    if (fs.existsSync(distPath)) {
+    const possibleDistPaths = [
+      path.resolve(process.cwd(), 'dist'),
+      path.join(__dirname, 'dist'),
+      path.resolve(__dirname, '../dist')
+    ];
+    const distPath = possibleDistPaths.find(p => fs.existsSync(p));
+
+    if (distPath) {
       app.use(express.static(distPath));
-      app.get('*', (_req, res) => {
+      app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
         res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      app.get('/', (_req, res) => {
+        res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+            <head><title>SALTEX Monitor API</title></head>
+            <body style="font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; text-align: center;">
+              <h1 style="color: #38bdf8;">SALTEX Monitor Backend API</h1>
+              <p>El backend se está ejecutando en modo producción.</p>
+              <p>Para cargar la interfaz, asegúrate de compilar con <code>npm run build</code>.</p>
+              <p><a href="/api/health" style="color: #60a5fa;">Verificar estado de la API</a></p>
+            </body>
+          </html>
+        `);
       });
     }
   } else {
